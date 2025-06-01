@@ -1,18 +1,8 @@
 import os
-# OS module ko import kar rahe hain, jo environment variables ko handle karta hai
-
 import chainlit as cl
-# Chainlit library import kar rahe hain jisse chat UI banega
-
 from openai import AsyncOpenAI
-# OpenAI ka Async client import kar rahe hain jo async calls karta hai
-
-# Load environment variables (create a .env file with your OpenRouter key)
 from dotenv import load_dotenv
-# dotenv package se load_dotenv function import kar rahe hain .env file load karne ke liye
-
 load_dotenv()
-# .env file ko load kar rahe hain jisme apni API keys hoti hain
 
 # Initialize clients for different models
 clients = {
