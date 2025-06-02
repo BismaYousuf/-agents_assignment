@@ -1,7 +1,9 @@
 import os
 import chainlit as cl
 from openai import AsyncOpenAI
-from agents import Agent, Runner, OpenAIChatCompletionsModel
+# OpenAI ka Async client import kar rahe hain jo async calls karta hai
+
+# Load environment variables (create a .env file with your OpenRouter key)
 from dotenv import load_dotenv
 load_dotenv()
 
