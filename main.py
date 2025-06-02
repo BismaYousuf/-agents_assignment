@@ -1,51 +1,15 @@
 import os
-# OS module ko import kar rahe hain, jo environment variables ko handle karta hai
-
 import chainlit as cl
-# Chainlit library import kar rahe hain jisse chat UI banega
-
 from openai import AsyncOpenAI
-# OpenAI ka Async client import kar rahe hain jo async calls karta hai
-
-# Load environment variables (create a .env file with your OpenRouter key)
+from agents import Agent, Runner, OpenAIChatCompletionsModel
 from dotenv import load_dotenv
-# dotenv package se load_dotenv function import kar rahe hain .env file load karne ke liye
-
 load_dotenv()
-# .env file ko load kar rahe hain jisme apni API keys hoti hain
 
 # Initialize clients for different models
-clients = {
-    "DeepSeek (Free)": AsyncOpenAI(
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url="https://openrouter.ai/api/v1"
-    ),
-    # DeepSeek model ke liye client bana rahe hain, API key aur base URL set kar ke
-
-    "GPT-3.5 Turbo": AsyncOpenAI(
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url="https://openrouter.ai/api/v1"
-    ),
-    # GPT-3.5 Turbo model ke liye client initialize kar rahe hain
-
-    "Claude Instant": AsyncOpenAI(
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url="https://openrouter.ai/api/v1"
-    ),
-    # Claude Instant model ke liye client bana rahe hain
-
-    "Mistral 7B": AsyncOpenAI(
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url="https://openrouter.ai/api/v1"
-    ),
-    # Mistral 7B model ka client set kar rahe hain
-
-    "Llama 2 13B": AsyncOpenAI(
+clients = AsyncOpenAI(
         api_key=os.getenv("OPENROUTER_API_KEY"),
         base_url="https://openrouter.ai/api/v1"
     )
-    # Llama 2 13B model ke liye client initialize kar rahe hain
-}
 
 # Model configurations
 models = {
@@ -55,13 +19,13 @@ models = {
     "GPT-3.5 Turbo": "openai/gpt-3.5-turbo",
     # GPT-3.5 Turbo ka model ID
 
-    "Claude Instant": "anthropic/claude-instant-v1",
+    "Google Gemini": "google/gemini-2.0-flash-exp:free",
     # Claude Instant ka model ID
 
-    "Mistral 7B": "mistral/mistral-7b-instruct",
+    "Mistral": "mistralai/devstral-small:free",
     # Mistral 7B ka model ID
 
-    "Llama 2 13B": "meta-llama/llama-2-13b-chat"
+    "Microsoft Mai": "microsoft/mai-ds-r1:free"
     # Llama 2 13B ka model ID
 }
 
@@ -92,7 +56,7 @@ async def setup_chat(settings):
     cl.user_session.set("model", models[model_name])
     # User session mein us model ka ID save kar rahe hain
 
-    cl.user_session.set("client", clients[model_name])
+    cl.user_session.set("client", clients)
     # Us model ka client (jo API ke sath baat karega) bhi session mein save kar rahe hain
 
     await cl.Message(f"Model changed to: {model_name}").send()
@@ -112,17 +76,21 @@ async def main(message: cl.Message):
     await msg.send()
     # Ek empty message bhejte hain jahan streaming response dikhayenge
 
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": message.content}],
-        stream=True
-    )
-    # OpenRouter API ko call kar ke user ka message bhejte hain aur streaming response le rahe hain
+    agent = Agent(
+        name="My Agent",
+        instructions="you are a helpful assistant",
+        model=OpenAIChatCompletionsModel(model=model, openai_client=client),
+)
 
-    async for chunk in response:
-        if chunk.choices[0].delta.content:
-            await msg.stream_token(chunk.choices[0].delta.content)
-    # Jo bhi token response mein aata hai usko stream karte hue user ko dikhate hain
+    result = Runner.run_streamed(agent, message.content)
+
+    async for event in result.stream_events():
+        if event.type == "raw_response_event" and hasattr(event.data, 'delta'):
+                token = event.data.delta
+                await msg.stream_token(token)
+
+
+    
 
     await msg.update()
     # Jab complete response aa jaye to message update kar dete hain
